@@ -60,7 +60,7 @@ The `Build kernels` workflow now, before compiling:
 1. Applies every patch in `patches/`
    - `0001` – DRM core: internal panels (DSI/eDP/LVDS/DPI) only expose their 120Hz modes and atomic commits at any other rate are rejected. No sysfs/property/param switch. If a panel has no 120Hz mode, nothing is filtered (display can't go blank).
    - `0002` – lets `-O3` be selected on arm64 (upstream only allows it on ARC).
-2. Sets `-O3`, drops `printk` timestamps/caller, lowers console/message loglevel to 1, disables pstore console/pmsg, `PAGE_OWNER`, and SUSFS logging.
+2. Sets `-O3`, drops `printk` timestamps/caller, lowers console/message loglevel to 1, disables pstore console/pmsg and `PAGE_OWNER`. (SUSFS logging must stay enabled: this SUSFS version does not build with it off.)
 3. Builds the ReSukiSU + SUSFS (`ksu`) variant by default.
 
 `module/force120vk-v1.1.zip` is a KernelSU module for the userspace side: Vulkan (SkiaVK) systemwide, 120Hz settings, and `logd`/`traced` stopped.

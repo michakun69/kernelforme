@@ -320,7 +320,7 @@ jobs:
           for k in CC_OPTIMIZE_FOR_PERFORMANCE CC_OPTIMIZE_FOR_PERFORMANCE_O3 CC_OPTIMIZE_FOR_SIZE \
                    PRINTK_TIME PRINTK_CALLER PSTORE_CONSOLE PSTORE_PMSG PAGE_OWNER \
                    CONSOLE_LOGLEVEL_DEFAULT CONSOLE_LOGLEVEL_QUIET MESSAGE_LOGLEVEL_DEFAULT \
-                   KSU_SUSFS_ENABLE_LOG DRM_FORCE_120HZ; do
+                   DRM_FORCE_120HZ; do
             sed -i "/^CONFIG_${k}=/d;/^# CONFIG_${k} is not set/d" "$CFG"
           done
 
@@ -336,7 +336,6 @@ jobs:
           CONFIG_CONSOLE_LOGLEVEL_DEFAULT=1
           CONFIG_CONSOLE_LOGLEVEL_QUIET=1
           CONFIG_MESSAGE_LOGLEVEL_DEFAULT=1
-          # CONFIG_KSU_SUSFS_ENABLE_LOG is not set
           EOF
           echo "✅ patches + config tweaks applied"
 
