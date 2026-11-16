@@ -257,6 +257,36 @@ jobs:
 
           echo "🎉 ReSukiSU installed and SUSFS for GKI android13-5.15 fully integrated!"
 
+      - name: "🩹 Fix SUSFS hunks that failed to apply"
+        if: matrix.variant == 'ksu'
+        working-directory: ./${{ env.kernelDir }}/${{ env.kernelName }}
+        run: |
+          set -e
+          echo "---- rejected hunks (diagnostics) ----"
+          find . -name '*.rej' -print -exec cat {} \; || true
+
+          # The SUSFS patch's first hunk (the #include block) fails to apply on
+          # these two files, but the remaining hunks apply and use SUSFS_* macros,
+          # so the build breaks with "implicit declaration". Add the includes.
+          cat > /tmp/susfs_inc.txt << 'EOF'
+          #ifdef CONFIG_KSU_SUSFS
+          #include <linux/susfs.h>
+          #include <linux/susfs_def.h>
+          #endif
+          EOF
+          for f in fs/proc/task_mmu.c fs/namespace.c; do
+            if grep -q 'linux/susfs_def.h' "$f"; then
+              echo "ℹ️ $f already includes susfs_def.h"
+            elif grep -q '^#include "internal.h"$' "$f"; then
+              sed -i '/^#include "internal.h"$/r /tmp/susfs_inc.txt' "$f"
+              echo "✔ Added SUSFS includes to $f"
+            else
+              echo "❌ anchor '#include \"internal.h\"' not found in $f"; exit 1
+            fi
+          done
+          find . -name '*.rej' -delete
+          find . -name '*.orig' -delete
+
       - name: "⚡ Apply 120Hz lock, -O3, quiet logging"
         working-directory: ./${{ env.kernelDir }}/${{ env.kernelName }}
         run: |
