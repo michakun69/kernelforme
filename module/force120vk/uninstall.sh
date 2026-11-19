@@ -11,3 +11,9 @@ settings delete global angle_gl_driver_selection_values
 settings delete global low_power_trigger_level
 settings delete global automatic_power_save_mode
 rm -f /data/adb/force120vk.conf
+cmd settings delete global settings_enable_monitor_phantom_procs 2>/dev/null
+cmd device_config delete activity_manager max_cached_processes 2>/dev/null
+cmd device_config delete activity_manager max_phantom_processes 2>/dev/null
+cmd settings put global window_animation_scale 1.0
+cmd settings put global transition_animation_scale 1.0
+cmd settings put global animator_duration_scale 1.0

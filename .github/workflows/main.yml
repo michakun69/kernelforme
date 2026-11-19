@@ -322,7 +322,8 @@ jobs:
                    CONSOLE_LOGLEVEL_DEFAULT CONSOLE_LOGLEVEL_QUIET MESSAGE_LOGLEVEL_DEFAULT \
                    DRM_FORCE_120HZ HZ HZ_100 HZ_250 HZ_300 HZ_1000 CMDLINE LOG_BUF_SHIFT \
                    UNMAP_KERNEL_AT_EL0 MITIGATE_SPECTRE_BRANCH_HISTORY \
-                   ZRAM_DEF_COMP_LZORLE ZRAM_DEF_COMP_LZ4 ZRAM_DEF_COMP_ZSTD; do
+                   ZRAM_DEF_COMP_LZORLE ZRAM_DEF_COMP_LZ4 ZRAM_DEF_COMP_ZSTD \
+                   IOSCHED_BFQ BFQ_GROUP_IOSCHED LRU_GEN_ENABLED; do
             sed -i "/^CONFIG_${k}=/d;/^# CONFIG_${k} is not set/d" "$CFG"
           done
 
@@ -350,6 +351,13 @@ jobs:
           # zram: zstd by default (better ratio than lzo-rle -> more apps stay cached)
           # CONFIG_ZRAM_DEF_COMP_LZORLE is not set
           CONFIG_ZRAM_DEF_COMP_ZSTD=y
+          # I/O: BFQ is the heaviest scheduler and nothing on a phone needs it;
+          # mq-deadline (+kyber) stay. The active scheduler is picked at runtime
+          # by the module (elevator= is ignored on 5.15).
+          # CONFIG_IOSCHED_BFQ is not set
+          # CONFIG_BFQ_GROUP_IOSCHED is not set
+          # Multi-gen LRU on by default: better reclaim -> more apps stay cached
+          CONFIG_LRU_GEN_ENABLED=y
           # Keep the stock GKI params, append ours (CMDLINE_EXTEND is already on)
           CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure mitigations=off nowatchdog nosoftlockup nmi_watchdog=0 quiet loglevel=0 printk.devkmsg=off"
           EOF
@@ -366,7 +374,7 @@ jobs:
         run: |
           CFG=$(find out -maxdepth 4 -name .config | head -1)
           echo "config: $CFG"
-          grep -E "^(# )?CONFIG_(HZ|HZ_100|HZ_250|CC_OPTIMIZE_FOR_PERFORMANCE_O3|DRM_FORCE_120HZ|UNMAP_KERNEL_AT_EL0|MITIGATE_SPECTRE_BRANCH_HISTORY|ZRAM_DEF_COMP_ZSTD|ZRAM_DEF_COMP|LOG_BUF_SHIFT|PRINTK_TIME|PSTORE_CONSOLE|CMDLINE|CMDLINE_EXTEND|CONSOLE_LOGLEVEL_DEFAULT)[= ]" "$CFG" || true
+          grep -E "^(# )?CONFIG_(HZ|HZ_100|HZ_250|IOSCHED_BFQ|MQ_IOSCHED_DEADLINE|LRU_GEN|LRU_GEN_ENABLED|CC_OPTIMIZE_FOR_PERFORMANCE_O3|DRM_FORCE_120HZ|UNMAP_KERNEL_AT_EL0|MITIGATE_SPECTRE_BRANCH_HISTORY|ZRAM_DEF_COMP_ZSTD|ZRAM_DEF_COMP|LOG_BUF_SHIFT|PRINTK_TIME|PSTORE_CONSOLE|CMDLINE|CMDLINE_EXTEND|CONSOLE_LOGLEVEL_DEFAULT)[= ]" "$CFG" || true
 
       - name: "📦 Prepare artifact"
         working-directory: ${{ env.WORK_DIR }}
@@ -395,11 +403,18 @@ jobs:
           BUILD_TIME=$(date +'%Y-%m-%d')
           git clone --depth=1 https://github.com/topnotchfreaks/AnyKernel3 -b master AnyKernel3
           
+          # Only this phone: keep tapas (+ topaz, same board, some ports report it);
+          # drop the other devices' entries from the flasher's device check.
+          sed -i '/^device\.name[3-9]=/d' AnyKernel3/anykernel.sh
+          grep -q '^device.name1=topaz' AnyKernel3/anykernel.sh && \
+          grep -q '^device.name2=tapas' AnyKernel3/anykernel.sh || { echo "❌ device list edit failed"; exit 1; }
+          grep -n '^device\.name' AnyKernel3/anykernel.sh
+
           # Copy kernels
           find kernels -name "Image.*" -exec cp {} AnyKernel3/ \;
-          
+
           # Create ZIP
-          ZIP_NAME="Anykernel3_ReSukiSU_${{ github.event.inputs.kernelBranch }}_${BUILD_TIME}.zip"
+          ZIP_NAME="Anykernel3_tapas_ReSukiSU_${BUILD_TIME}.zip"
           cd AnyKernel3
           zip -r9 "../$ZIP_NAME" * -x .git/*
           cd ..

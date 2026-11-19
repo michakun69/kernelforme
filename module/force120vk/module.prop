@@ -1,6 +1,6 @@
 id=force120vk
 name=Force 120Hz + Vulkan
-version=v1.2
-versionCode=3
+version=v1.3
+versionCode=4
 author=you
-description=Vulkan (+ANGLE), SF refresh overrides off, 120Hz pinned vs power saver, blur off, loggers off, zstd zram + vm tuning for 6GB RAM.
+description=tapas tuning: Vulkan(+ANGLE), 120Hz pinned vs power saver, blur off, loggers off, zstd zram + MGLRU, mq-deadline read-priority IO, more cached apps, lighter background loop.
