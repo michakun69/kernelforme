@@ -320,7 +320,9 @@ jobs:
           for k in CC_OPTIMIZE_FOR_PERFORMANCE CC_OPTIMIZE_FOR_PERFORMANCE_O3 CC_OPTIMIZE_FOR_SIZE \
                    PRINTK_TIME PRINTK_CALLER PSTORE_CONSOLE PSTORE_PMSG PAGE_OWNER \
                    CONSOLE_LOGLEVEL_DEFAULT CONSOLE_LOGLEVEL_QUIET MESSAGE_LOGLEVEL_DEFAULT \
-                   DRM_FORCE_120HZ; do
+                   DRM_FORCE_120HZ HZ HZ_100 HZ_250 HZ_300 HZ_1000 CMDLINE LOG_BUF_SHIFT \
+                   UNMAP_KERNEL_AT_EL0 MITIGATE_SPECTRE_BRANCH_HISTORY \
+                   ZRAM_DEF_COMP_LZORLE ZRAM_DEF_COMP_LZ4 ZRAM_DEF_COMP_ZSTD; do
             sed -i "/^CONFIG_${k}=/d;/^# CONFIG_${k} is not set/d" "$CFG"
           done
 
@@ -336,6 +338,20 @@ jobs:
           CONFIG_CONSOLE_LOGLEVEL_DEFAULT=1
           CONFIG_CONSOLE_LOGLEVEL_QUIET=1
           CONFIG_MESSAGE_LOGLEVEL_DEFAULT=1
+          CONFIG_LOG_BUF_SHIFT=12
+          # tick: arm64 has no 50Hz option, 100 is the lowest
+          # CONFIG_HZ_250 is not set
+          CONFIG_HZ_100=y
+          CONFIG_HZ=100
+          # CPU-side mitigations (KPTI + branch-history). Other mitigations are
+          # turned off at boot via mitigations=off in CMDLINE below.
+          # CONFIG_UNMAP_KERNEL_AT_EL0 is not set
+          # CONFIG_MITIGATE_SPECTRE_BRANCH_HISTORY is not set
+          # zram: zstd by default (better ratio than lzo-rle -> more apps stay cached)
+          # CONFIG_ZRAM_DEF_COMP_LZORLE is not set
+          CONFIG_ZRAM_DEF_COMP_ZSTD=y
+          # Keep the stock GKI params, append ours (CMDLINE_EXTEND is already on)
+          CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure mitigations=off nowatchdog nosoftlockup nmi_watchdog=0 quiet loglevel=0 printk.devkmsg=off"
           EOF
           echo "✅ patches + config tweaks applied"
 
@@ -344,6 +360,13 @@ jobs:
         run: |
           LTO=thin BUILD_CONFIG=${{ env.kernelDir }}/${{ env.kernelName }}/build.config.gki.aarch64 \
           build/build.sh -j$(nproc --all)
+
+      - name: "🔎 Show effective config (what actually got applied)"
+        working-directory: ${{ env.WORK_DIR }}
+        run: |
+          CFG=$(find out -maxdepth 4 -name .config | head -1)
+          echo "config: $CFG"
+          grep -E "^(# )?CONFIG_(HZ|HZ_100|HZ_250|CC_OPTIMIZE_FOR_PERFORMANCE_O3|DRM_FORCE_120HZ|UNMAP_KERNEL_AT_EL0|MITIGATE_SPECTRE_BRANCH_HISTORY|ZRAM_DEF_COMP_ZSTD|ZRAM_DEF_COMP|LOG_BUF_SHIFT|PRINTK_TIME|PSTORE_CONSOLE|CMDLINE|CMDLINE_EXTEND|CONSOLE_LOGLEVEL_DEFAULT)[= ]" "$CFG" || true
 
       - name: "📦 Prepare artifact"
         working-directory: ${{ env.WORK_DIR }}

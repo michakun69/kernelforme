@@ -63,6 +63,8 @@ The `Build kernels` workflow now, before compiling:
 2. Sets `-O3`, drops `printk` timestamps/caller, lowers console/message loglevel to 1, disables pstore console/pmsg and `PAGE_OWNER`. (SUSFS logging must stay enabled: this SUSFS version does not build with it off.)
 3. Builds the ReSukiSU + SUSFS (`ksu`) variant by default.
 
-`module/force120vk-v1.1.zip` is a KernelSU module for the userspace side: Vulkan (SkiaVK) systemwide, 120Hz settings, and `logd`/`traced` stopped.
+Config added in the second round: `HZ=100` (arm64 has no 50Hz option), KPTI and branch-history mitigations off plus `mitigations=off` on the kernel command line, `nowatchdog nosoftlockup nmi_watchdog=0`, `quiet loglevel=0`, 4KB log buffer, zstd as the default zram algorithm. Options that would remove symbols vendor modules link against (CFI, shadow call stack, stack protector, DEBUG_FS, PRINTK, WATCHDOG core, PM_WAKELOCKS) are deliberately left on.
+
+`module/force120vk-v1.2.zip` is a KernelSU module for the userspace side: Vulkan (SkiaVK, plus ANGLE for GL apps where the ROM ships it), SurfaceFlinger frame-rate overrides/idle timers off, battery saver disabled, blur off, loggers stopped, 6GB zstd zram + swappiness 140.
 
 Run **Actions → Build kernels → Run workflow** and pick the branch containing this change.
