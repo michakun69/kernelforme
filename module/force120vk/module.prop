@@ -1,6 +1,6 @@
 id=force120vk
 name=Force 120Hz + Vulkan
-version=v1.4
-versionCode=5
+version=v1.5
+versionCode=6
 author=you
-description=tapas tuning (no background loop): Vulkan(+ANGLE), 120Hz settings, blur off, loggers off, zstd zram + MGLRU, mq-deadline read-priority IO, more cached apps.
+description=Userspace tuning for a 6.12 GKI kernel on bengal: Vulkan(+ANGLE), 120Hz settings, blur off, loggers/watchdog/tracing down, optional zstd zram, MGLRU, mq-deadline read-priority IO, more cached apps.

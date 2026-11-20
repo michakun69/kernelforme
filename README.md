@@ -65,11 +65,11 @@ The `Build kernels` workflow now, before compiling:
 
 Config added in the second round: `HZ=100` (arm64 has no 50Hz option), KPTI and branch-history mitigations off plus `mitigations=off` on the kernel command line, `nowatchdog nosoftlockup nmi_watchdog=0`, `quiet loglevel=0`, 4KB log buffer, zstd as the default zram algorithm. Options that would remove symbols vendor modules link against (CFI, shadow call stack, stack protector, DEBUG_FS, PRINTK, WATCHDOG core, PM_WAKELOCKS) are deliberately left on.
 
-`module/force120vk-v1.4.zip` is a KernelSU module for the userspace side: Vulkan (SkiaVK, plus ANGLE for GL apps where the ROM ships it), SurfaceFlinger frame-rate overrides/idle timers off, battery saver disabled, blur off, loggers stopped, 6GB zstd zram + swappiness 140.
+`module/force120vk-v1.5.zip` is a KernelSU module for the userspace side: Vulkan (SkiaVK, plus ANGLE for GL apps where the ROM ships it), SurfaceFlinger frame-rate overrides/idle timers off, battery saver disabled, blur off, loggers stopped, 6GB zstd zram + swappiness 140.
 
 Run **Actions → Build kernels → Run workflow** and pick the branch containing this change.
 
 ### Tapas (Redmi Note 12 4G) notes
 - This fork is trimmed to one workflow (`main.yml`) and the flasher only accepts `tapas`/`topaz`.
 - Kernel: BFQ and Kyber removed (mq-deadline kept), MGLRU on by default, zstd zram default, HZ=100.
-- Module v1.4 (no background loop): `mq-deadline` with read priority, `iostats` off, MGLRU, zstd zram, more cached apps, animations 0.5x. Overrides go in `/data/adb/force120vk.conf` (`TARGET`, `ZRAM_SIZE`, `SWAPPINESS`, `ANIM_SCALE`, `MAX_CACHED`, `IO_SCHED`).
+- Module v1.5 (no background loop, for a 6.12 GKI kernel): `mq-deadline` with read priority, `iostats` off, MGLRU, zstd zram, more cached apps, animations 0.5x. Overrides go in `/data/adb/force120vk.conf` (`TARGET`, `ZRAM_SIZE`, `SWAPPINESS`, `ANIM_SCALE`, `MAX_CACHED`, `IO_SCHED`).

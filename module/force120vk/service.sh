@@ -4,6 +4,7 @@
 # Optional overrides in /data/adb/force120vk.conf, e.g.:
 #   TARGET=120          refresh rate
 #   ZRAM_SIZE=6G        zram disksize
+#   ZRAM_ALGO=zstd      zram algorithm ("" = leave zram untouched, lz4kd = stock)
 #   SWAPPINESS=140
 #   ANIM_SCALE=0.5      window/transition/animator scale ("" = leave alone)
 #   MAX_CACHED=64       cached background processes ("" = leave alone)
@@ -11,6 +12,7 @@
 [ -f /data/adb/force120vk.conf ] && . /data/adb/force120vk.conf
 TARGET=${TARGET:-120}
 ZRAM_SIZE=${ZRAM_SIZE:-6G}
+ZRAM_ALGO=${ZRAM_ALGO-zstd}   # zstd = bigger ratio (more apps cached); lz4kd = faster, less CPU
 SWAPPINESS=${SWAPPINESS:-140}
 ANIM_SCALE=${ANIM_SCALE-0.5}
 MAX_CACHED=${MAX_CACHED-64}
@@ -67,8 +69,18 @@ for b in /sys/block/sd[a-z] /sys/block/mmcblk[0-9]; do
   w $b/queue/iosched/front_merges 0
 done
 
-# (watchdog / printk / loglevel are already off via the kernel cmdline: not repeated here)
+# This kernel ships with the watchdog, hung-task check, loglevel 7, printk
+# timestamps and tracing all on, so turn them down at runtime.
+w /proc/sys/kernel/watchdog 0
+w /proc/sys/kernel/nmi_watchdog 0
+w /proc/sys/kernel/soft_watchdog 0
+w /proc/sys/kernel/hung_task_timeout_secs 0
+w /proc/sys/kernel/printk "0 0 0 0"
+w /proc/sys/kernel/printk_devkmsg off
+w /sys/module/printk/parameters/time N
 w /proc/sys/kernel/sched_schedstats 0
+w /sys/kernel/tracing/tracing_on 0
+w /sys/kernel/debug/tracing/tracing_on 0
 
 # --------------------------------------------- Vulkan: GL apps via ANGLE
 # Only has an effect if the ROM ships ANGLE (libGLESv2_angle.so).
