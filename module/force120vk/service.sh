@@ -67,13 +67,7 @@ for b in /sys/block/sd[a-z] /sys/block/mmcblk[0-9]; do
   w $b/queue/iosched/front_merges 0
 done
 
-# --------------------------------------- watchdog / debug machinery (runtime)
-w /proc/sys/kernel/watchdog 0
-w /proc/sys/kernel/nmi_watchdog 0
-w /proc/sys/kernel/soft_watchdog 0
-w /proc/sys/kernel/hung_task_timeout_secs 0
-w /proc/sys/kernel/printk "0 0 0 0"
-w /proc/sys/kernel/printk_devkmsg off
+# (watchdog / printk / loglevel are already off via the kernel cmdline: not repeated here)
 w /proc/sys/kernel/sched_schedstats 0
 
 # --------------------------------------------- Vulkan: GL apps via ANGLE
@@ -100,6 +94,8 @@ stop_loggers() {
   done
 }
 
+# No loop: a stopped service stays stopped until reboot, and the kernel already
+# only offers 120Hz. Apply once now and once more after the ROM has settled.
 apply() {
   # --- refresh rate (AOSP / ColorOS / HyperOS keys; unknown ones are harmless)
   $S system min_refresh_rate "$TARGET"
@@ -117,9 +113,9 @@ apply() {
   $S global disable_window_blurs 1
 }
 
-# Re-apply every 2 minutes (was 30s). Each pass is ~11 cheap `cmd` calls.
-while true; do
-  stop_loggers
-  apply >/dev/null 2>&1
-  sleep 120
-done
+stop_loggers
+apply >/dev/null 2>&1
+sleep 90
+stop_loggers
+apply >/dev/null 2>&1
+exit 0
