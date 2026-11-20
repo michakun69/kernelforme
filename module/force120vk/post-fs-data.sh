@@ -1,15 +1,13 @@
 #!/system/bin/sh
-# Early boot (before zygote / SurfaceFlinger start): props are read once at
-# process start, so everything that must be seen by SF / HWUI goes here.
+# Early boot (before zygote / SurfaceFlinger start): properties are read once
+# at process start, so everything SF / HWUI must see goes here. No daemon.
 
 # ---- Vulkan -----------------------------------------------------------
-# HWUI (app UI rendering) -> Skia on Vulkan
 resetprop ro.hwui.use_vulkan true
 resetprop debug.hwui.renderer skiavk
-# SurfaceFlinger RenderEngine (composition) -> Skia on Vulkan (Android 13+)
 resetprop debug.renderengine.backend skiavkthreaded
 
-# ---- Refresh rate: stop SurfaceFlinger honoring per-app / content rates -
+# ---- Refresh rate: SurfaceFlinger must not follow per-app / content rates
 resetprop ro.surface_flinger.enable_frame_rate_override false
 resetprop ro.surface_flinger.use_content_detection_for_refresh_rate false
 resetprop ro.surface_flinger.set_idle_timer_ms 0
@@ -17,10 +15,19 @@ resetprop ro.surface_flinger.set_touch_timer_ms 0
 resetprop ro.surface_flinger.set_display_power_timer_ms 0
 resetprop ro.surface_flinger.game_default_frame_rate_override 120
 
-# ---- Blur off ---------------------------------------------------------
+# ---- Blur off (own props + the two new ones from Bye-Blur v3) -----------
 resetprop ro.surface_flinger.supports_background_blur 0
 resetprop persist.sysui.disableBlur true
 resetprop persist.sys.sf.disable_blurs 1
+resetprop ro.launcher.blur.appLaunch 0
+resetprop persist.sys.background_blur_supported false
+
+# ---- GPU/DDR bandwidth: keep UBWC (compressed buffers) explicitly on ----
+# (stock default already; from GPU Turbo Boost, the only item there with a
+#  real mechanism: less memory traffic -> less power/heat)
+resetprop debug.gralloc.gfx_ubwc_disable 0
+resetprop vendor.gralloc.disable_ubwc 0
+resetprop debug.mdpcomp.logs 0
 
 # ---- Logging props ----------------------------------------------------
 resetprop persist.log.tag S

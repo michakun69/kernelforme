@@ -1,6 +1,6 @@
 id=force120vk
-name=Force 120Hz + Vulkan
-version=v1.6
-versionCode=7
+name=Tapas Lite Tweaks
+version=v2.0
+versionCode=8
 author=you
-description=Userspace tuning for a 6.12 GKI kernel on bengal: Vulkan(+ANGLE), 120Hz settings, blur off, loggers/watchdog/tracing down, optional zstd zram, MGLRU, mq-deadline read-priority IO, more cached apps.
+description=One-shot, no daemon: Vulkan(+ANGLE), SF refresh overrides off, 120Hz settings, blur off, UBWC on, loggers/watchdog/tracing down, MGLRU on, mq-deadline IO. Memory stays stock.
