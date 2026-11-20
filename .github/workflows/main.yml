@@ -209,7 +209,14 @@ jobs:
           # vendor modules (display, GPU, ...) keep matching. CMDLINE_EXTEND is already on.
           drop CMDLINE
           cat >> "$CFG" << 'EOF'
-          CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure mitigations=off nowatchdog nosoftlockup nmi_watchdog=0 quiet loglevel=0 printk.devkmsg=off init_on_alloc=0 init_on_free=0 randomize_kstack_offset=off"
+          CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure mitigations=off nowatchdog nosoftlockup nmi_watchdog=0 quiet loglevel=0 printk.devkmsg=off init_on_alloc=0 init_on_free=0 randomize_kstack_offset=off tracing_off noirqdebug"
+          EOF
+
+          # Default-only toggles (no struct/KMI change): MGLRU on at boot, power-efficient workqueues
+          drop LRU_GEN_ENABLED WQ_POWER_EFFICIENT_DEFAULT
+          cat >> "$CFG" << 'EOF'
+          CONFIG_LRU_GEN_ENABLED=y
+          CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y
           EOF
 
           if [ "$PROFILE" = "lock" ]; then
