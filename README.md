@@ -71,5 +71,5 @@ Run **Actions → Build kernels → Run workflow** and pick the branch containin
 
 ### Tapas (Redmi Note 12 4G) notes
 - This fork is trimmed to one workflow (`main.yml`) and the flasher only accepts `tapas`/`topaz`.
-- Kernel: BFQ removed, MGLRU on by default, zstd zram default, HZ=100.
+- Kernel: BFQ and Kyber removed (mq-deadline kept), MGLRU on by default, zstd zram default, HZ=100.
 - Module v1.4 (no background loop): `mq-deadline` with read priority, `iostats` off, MGLRU, zstd zram, more cached apps, animations 0.5x. Overrides go in `/data/adb/force120vk.conf` (`TARGET`, `ZRAM_SIZE`, `SWAPPINESS`, `ANIM_SCALE`, `MAX_CACHED`, `IO_SCHED`).

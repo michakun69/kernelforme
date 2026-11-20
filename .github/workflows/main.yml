@@ -323,7 +323,7 @@ jobs:
                    DRM_FORCE_120HZ HZ HZ_100 HZ_250 HZ_300 HZ_1000 CMDLINE LOG_BUF_SHIFT \
                    UNMAP_KERNEL_AT_EL0 MITIGATE_SPECTRE_BRANCH_HISTORY \
                    ZRAM_DEF_COMP_LZORLE ZRAM_DEF_COMP_LZ4 ZRAM_DEF_COMP_ZSTD \
-                   IOSCHED_BFQ BFQ_GROUP_IOSCHED LRU_GEN_ENABLED; do
+                   IOSCHED_BFQ BFQ_GROUP_IOSCHED MQ_IOSCHED_KYBER LRU_GEN_ENABLED; do
             sed -i "/^CONFIG_${k}=/d;/^# CONFIG_${k} is not set/d" "$CFG"
           done
 
@@ -356,6 +356,7 @@ jobs:
           # by the module (elevator= is ignored on 5.15).
           # CONFIG_IOSCHED_BFQ is not set
           # CONFIG_BFQ_GROUP_IOSCHED is not set
+          # CONFIG_MQ_IOSCHED_KYBER is not set
           # Multi-gen LRU on by default: better reclaim -> more apps stay cached
           CONFIG_LRU_GEN_ENABLED=y
           # Keep the stock GKI params, append ours (CMDLINE_EXTEND is already on)
@@ -374,7 +375,7 @@ jobs:
         run: |
           CFG=$(find out -maxdepth 4 -name .config | head -1)
           echo "config: $CFG"
-          grep -E "^(# )?CONFIG_(HZ|HZ_100|HZ_250|IOSCHED_BFQ|MQ_IOSCHED_DEADLINE|LRU_GEN|LRU_GEN_ENABLED|CC_OPTIMIZE_FOR_PERFORMANCE_O3|DRM_FORCE_120HZ|UNMAP_KERNEL_AT_EL0|MITIGATE_SPECTRE_BRANCH_HISTORY|ZRAM_DEF_COMP_ZSTD|ZRAM_DEF_COMP|LOG_BUF_SHIFT|PRINTK_TIME|PSTORE_CONSOLE|CMDLINE|CMDLINE_EXTEND|CONSOLE_LOGLEVEL_DEFAULT)[= ]" "$CFG" || true
+          grep -E "^(# )?CONFIG_(HZ|HZ_100|HZ_250|IOSCHED_BFQ|MQ_IOSCHED_DEADLINE|MQ_IOSCHED_KYBER|LRU_GEN|LRU_GEN_ENABLED|CC_OPTIMIZE_FOR_PERFORMANCE_O3|DRM_FORCE_120HZ|UNMAP_KERNEL_AT_EL0|MITIGATE_SPECTRE_BRANCH_HISTORY|ZRAM_DEF_COMP_ZSTD|ZRAM_DEF_COMP|LOG_BUF_SHIFT|PRINTK_TIME|PSTORE_CONSOLE|CMDLINE|CMDLINE_EXTEND|CONSOLE_LOGLEVEL_DEFAULT)[= ]" "$CFG" || true
 
       - name: "📦 Prepare artifact"
         working-directory: ${{ env.WORK_DIR }}
