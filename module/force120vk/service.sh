@@ -19,8 +19,8 @@ sleep 10
 
 w() { [ -w "$1" ] && echo "$2" > "$1"; }
 
-# multi-gen LRU: only flips it on if the kernel has it and it is off
-w /sys/kernel/mm/lru_gen/enabled y
+# multi-gen LRU: kernel build enables it by default; on other kernels turn it on here
+[ "$(cat /sys/kernel/mm/lru_gen/enabled 2>/dev/null)" = "0x0000" ] && w /sys/kernel/mm/lru_gen/enabled y
 
 # I/O: mq-deadline (tiny CPU cost), reads served ahead of background writes
 for b in /sys/block/sd[a-z] /sys/block/mmcblk[0-9]; do
@@ -34,10 +34,7 @@ for b in /sys/block/sd[a-z] /sys/block/mmcblk[0-9]; do
   w $b/queue/iosched/front_merges 0
 done
 
-# watchdog / log / debug / trace overhead off at runtime
-w /proc/sys/kernel/watchdog 0
-w /proc/sys/kernel/nmi_watchdog 0
-w /proc/sys/kernel/soft_watchdog 0
+# log / debug overhead off at runtime (watchdog, tracing, MGLRU are done by the kernel cmdline/config)
 w /proc/sys/kernel/hung_task_timeout_secs 0
 w /proc/sys/kernel/printk "0 0 0 0"
 w /proc/sys/kernel/printk_devkmsg off
@@ -46,8 +43,6 @@ w /proc/sys/kernel/sched_schedstats 0
 w /proc/sys/kernel/perf_cpu_time_max_percent 1
 w /sys/kernel/tracing/events/enable 0
 w /sys/kernel/debug/tracing/events/enable 0
-w /sys/kernel/tracing/tracing_on 0
-w /sys/kernel/debug/tracing/tracing_on 0
 w /proc/sys/vm/stat_interval 10     # vmstat timer: fewer idle wakeups
 
 # Settings written once (not repeated)
