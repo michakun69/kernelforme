@@ -31,3 +31,11 @@ persist.log.tag=S
 persist.logd.size=64K
 persist.traced.enable=0
 ro.logd.size=64K
+
+# Qualcomm composer: no panel idle fps drop
+vendor.display.idle_time=0
+vendor.display.idle_time_inactive=0
+
+# More logging off
+persist.sys.assert.panic=false
+persist.vendor.verbose_logging_enabled=false

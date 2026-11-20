@@ -2,13 +2,15 @@
 # One-shot late-boot script: no loop, no daemon, exits in ~100s. Memory stays stock.
 #
 # Optional overrides in /data/adb/force120vk.conf:
-#   TARGET=120          refresh-rate setting
-#   ANIM_SCALE=0.5      window/transition/animator scale ("" = leave alone)
+#   TARGET=120            refresh-rate setting
+#   ANIM_SCALE=0.5        window/transition/animator scale ("" = leave alone)
 #   IO_SCHED=mq-deadline
+#   SAVER_AUTO=0          1 = leave battery saver's automatic trigger alone
 [ -f /data/adb/force120vk.conf ] && . /data/adb/force120vk.conf
 TARGET=${TARGET:-120}
 ANIM_SCALE=${ANIM_SCALE-0.5}
 IO_SCHED=${IO_SCHED:-mq-deadline}
+SAVER_AUTO=${SAVER_AUTO:-0}
 
 S="cmd settings"      # native binder client: far cheaper than the `settings` app_process
 
@@ -17,7 +19,7 @@ sleep 10
 
 w() { [ -w "$1" ] && echo "$2" > "$1"; }
 
-# multi-gen LRU: compiled in, off by default
+# multi-gen LRU: only flips it on if the kernel has it and it is off
 w /sys/kernel/mm/lru_gen/enabled y
 
 # I/O: mq-deadline (tiny CPU cost), reads served ahead of background writes
@@ -32,7 +34,7 @@ for b in /sys/block/sd[a-z] /sys/block/mmcblk[0-9]; do
   w $b/queue/iosched/front_merges 0
 done
 
-# watchdog / log / trace overhead off at runtime (harmless if the kernel already did it)
+# watchdog / log / debug / trace overhead off at runtime
 w /proc/sys/kernel/watchdog 0
 w /proc/sys/kernel/nmi_watchdog 0
 w /proc/sys/kernel/soft_watchdog 0
@@ -41,8 +43,12 @@ w /proc/sys/kernel/printk "0 0 0 0"
 w /proc/sys/kernel/printk_devkmsg off
 w /sys/module/printk/parameters/time N
 w /proc/sys/kernel/sched_schedstats 0
+w /proc/sys/kernel/perf_cpu_time_max_percent 1
+w /sys/kernel/tracing/events/enable 0
+w /sys/kernel/debug/tracing/events/enable 0
 w /sys/kernel/tracing/tracing_on 0
 w /sys/kernel/debug/tracing/tracing_on 0
+w /proc/sys/vm/stat_interval 10     # vmstat timer: fewer idle wakeups
 
 # Settings written once (not repeated)
 $S put global angle_gl_driver_all_angle 1        # GL via ANGLE/Vulkan, only if the ROM ships ANGLE
@@ -55,12 +61,13 @@ if [ -n "$ANIM_SCALE" ]; then
   $S put global animator_duration_scale "$ANIM_SCALE"
 fi
 
-# Older versions of this module disabled battery saver (those settings persist
-# across upgrades). Put battery saver back to normal; refresh rate is held by
-# the kernel's 120Hz-only mode list, not by turning the saver off.
-$S delete global low_power_trigger_level
-$S delete global automatic_power_save_mode
-$S delete global low_power_sticky
+# Battery saver: with no kernel-level lock the automatic trigger could drop the
+# refresh rate, so turn the auto-trigger off (manual toggle still exists).
+if [ "$SAVER_AUTO" = "0" ]; then
+  $S put global low_power_trigger_level 0
+  $S put global automatic_power_save_mode 0
+  $S delete global low_power_sticky
+fi
 
 apply() {
   $S put system min_refresh_rate "$TARGET"
@@ -70,7 +77,8 @@ apply() {
 }
 
 stop_loggers() {
-  for svc in logd logcatd statsd traced traced_probes incidentd; do
+  for svc in logd logcatd statsd traced traced_probes incidentd \
+             cnss_diag vendor.cnss_diag diag_mdlog tcpdump; do
     [ "$(getprop init.svc.$svc)" = "running" ] && stop "$svc" >/dev/null 2>&1
   done
 }

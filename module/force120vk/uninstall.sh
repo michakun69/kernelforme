@@ -10,6 +10,7 @@ settings delete global angle_gl_driver_selection_pkgs
 settings delete global angle_gl_driver_selection_values
 settings delete global low_power_trigger_level
 settings delete global automatic_power_save_mode
+settings delete global low_power_sticky
 rm -f /data/adb/force120vk.conf
 cmd settings delete global settings_enable_monitor_phantom_procs 2>/dev/null
 cmd device_config delete activity_manager max_cached_processes 2>/dev/null

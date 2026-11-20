@@ -1,6 +1,6 @@
 id=force120vk
 name=Tapas Lite Tweaks
-version=v2.1
-versionCode=9
+version=v2.2
+versionCode=10
 author=you
-description=One-shot, no daemon: Vulkan(+ANGLE), SF refresh overrides off, 120Hz settings, blur off, UBWC on, loggers/watchdog/tracing down, MGLRU on, mq-deadline IO. Battery saver stays usable. Memory stays stock.
+description=One-shot, no daemon: 120Hz-only settings + SF/vendor idle-fps off, battery-saver auto-trigger off, Vulkan(+ANGLE), blur off, UBWC on, loggers/watchdog/tracing off, mq-deadline IO. Memory stays stock. Tap Action to re-apply.
