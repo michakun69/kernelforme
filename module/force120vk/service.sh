@@ -30,10 +30,15 @@ w() { [ -w "$1" ] && echo "$2" > "$1"; }
 setup_zram() {
   Z=/sys/block/zram0
   [ -d "$Z" ] || return 0
+  [ -n "$ZRAM_ALGO" ] || return 0                        # ZRAM_ALGO="" -> leave zram alone
+  # Only touch zram if the kernel really offers the algorithm (this kernel's
+  # default is the ColorOS-style lz4kd) and no writeback device is attached.
+  grep -qw "$ZRAM_ALGO" $Z/comp_algorithm 2>/dev/null || return 0
+  [ ! -e $Z/backing_dev ] || [ "$(cat $Z/backing_dev 2>/dev/null)" = "none" ] || return 0
   swapoff /dev/block/zram0 2>/dev/null
   grep -q zram0 /proc/swaps && return 0     # still in use: don't touch it
   echo 1 > $Z/reset
-  echo zstd > $Z/comp_algorithm 2>/dev/null
+  echo "$ZRAM_ALGO" > $Z/comp_algorithm 2>/dev/null
   echo "$ZRAM_SIZE" > $Z/disksize
   mkswap /dev/block/zram0 >/dev/null 2>&1
   swapon -p 32758 /dev/block/zram0 >/dev/null 2>&1
