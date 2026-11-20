@@ -12,83 +12,13 @@ index cea777ae7..c1af8b263 100644
 +	default y
 +	help
 +	  Internal panels (DSI/eDP/LVDS/DPI) only expose their 120Hz modes
-+	  and atomic commits using any other refresh rate are rejected.
-+	  There is no sysfs, module parameter or property to change this.
++	  so userspace has no other refresh rate to pick. Commits are never
++	  rejected. There is no sysfs, module parameter or property to change it.
 +	  If a panel has no 120Hz mode, its mode list is left untouched.
 +
  config DRM_DEBUG_DP_MST_TOPOLOGY_REFS
          bool "Enable refcount backtrace history in the DP MST helpers"
  	depends on STACKTRACE_SUPPORT
-diff --git a/drivers/gpu/drm/drm_atomic_helper.c b/drivers/gpu/drm/drm_atomic_helper.c
-index e15aec8f2..ce2f336b7 100644
---- a/drivers/gpu/drm/drm_atomic_helper.c
-+++ b/drivers/gpu/drm/drm_atomic_helper.c
-@@ -35,6 +35,7 @@
- #include <drm/drm_damage_helper.h>
- #include <drm/drm_device.h>
- #include <drm/drm_drv.h>
-+#include <drm/drm_force_refresh.h>
- #include <drm/drm_gem_atomic_helper.h>
- #include <drm/drm_plane_helper.h>
- #include <drm/drm_print.h>
-@@ -499,6 +500,46 @@ mode_fixup(struct drm_atomic_state *state)
- 	return 0;
- }
- 
-+/*
-+ * CONFIG_DRM_FORCE_120HZ: refuse any modeset on an internal panel that would
-+ * program a refresh rate other than the forced one. Only applies when the
-+ * panel actually offers a forced-rate mode (see drm_force_refresh.h).
-+ */
-+static int force_refresh_check(struct drm_atomic_state *state)
-+{
-+	struct drm_connector *connector;
-+	struct drm_connector_state *conn_state;
-+	int i;
-+
-+	if (!IS_ENABLED(CONFIG_DRM_FORCE_120HZ))
-+		return 0;
-+
-+	for_each_new_connector_in_state(state, connector, conn_state, i) {
-+		struct drm_crtc_state *crtc_state;
-+
-+		if (!conn_state->crtc || !drm_force_hz_connector(connector))
-+			continue;
-+
-+		crtc_state = drm_atomic_get_new_crtc_state(state, conn_state->crtc);
-+		if (!crtc_state || !crtc_state->enable ||
-+		    !drm_atomic_crtc_needs_modeset(crtc_state))
-+			continue;
-+
-+		if (!drm_force_hz_locked(connector))
-+			continue;
-+
-+		if (drm_mode_vrefresh(&crtc_state->mode) != DRM_FORCED_VREFRESH) {
-+			DRM_DEBUG_ATOMIC("[CONNECTOR:%d:%s] refresh %d rejected, locked to %dHz\n",
-+					 connector->base.id, connector->name,
-+					 drm_mode_vrefresh(&crtc_state->mode),
-+					 DRM_FORCED_VREFRESH);
-+			return -EINVAL;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- static enum drm_mode_status mode_valid_path(struct drm_connector *connector,
- 					    struct drm_encoder *encoder,
- 					    struct drm_crtc *crtc,
-@@ -802,6 +843,10 @@ drm_atomic_helper_check_modeset(struct drm_device *dev,
- 			return ret;
- 	}
- 
-+	ret = force_refresh_check(state);
-+	if (ret)
-+		return ret;
-+
- 	ret = mode_valid(state);
- 	if (ret)
- 		return ret;
 diff --git a/drivers/gpu/drm/drm_probe_helper.c b/drivers/gpu/drm/drm_probe_helper.c
 index 6776652ab..87fb5e972 100644
 --- a/drivers/gpu/drm/drm_probe_helper.c

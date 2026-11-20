@@ -37,8 +37,24 @@ on:
           - "noksu"
           - "ksu"
           - "both"
+      profile:
+        description: "match = your kernel's config + boot params only (safest); lock = match + 120Hz mode-list lock + -O3"
+        required: true
+        type: choice
+        default: "match"
+        options:
+          - "match"
+          - "lock"
+      ksuRepo:
+        description: "Root solution"
+        required: true
+        type: choice
+        default: "ReSukiSU"
+        options:
+          - "ReSukiSU"
+          - "KernelSU"
       ksuRef:
-        description: "KernelSU tag/commit (empty = latest tag)"
+        description: "Root tag/branch/commit (empty = default branch)"
         required: false
         type: string
         default: ""
@@ -154,6 +170,7 @@ jobs:
         working-directory: ./${{ env.kernelDir }}/${{ env.kernelName }}
         env:
           KSU_REF: ${{ github.event.inputs.ksuRef }}
+          KSU_REPO: ${{ github.event.inputs.ksuRepo }}
           KSU_SIZE: ${{ github.event.inputs.ksuManagerSize }}
           KSU_HASH: ${{ github.event.inputs.ksuManagerHash }}
         run: |
@@ -163,8 +180,12 @@ jobs:
           sed -i '/drivers\/kernelsu\/Kconfig/d' drivers/Kconfig
 
           # official setup script: clones tiann/KernelSU, links drivers/kernelsu, wires Makefile+Kconfig
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s -- ${KSU_REF}
-          echo "KernelSU at: $(git -C KernelSU describe --tags --always)"
+          if [ "$KSU_REPO" = "ReSukiSU" ]; then
+            curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s -- ${KSU_REF:-main}
+          else
+            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -s -- ${KSU_REF}
+          fi
+          echo "KernelSU at: $(git -C KernelSU describe --tags --always || true)"
 
           # optionally trust a different manager app (e.g. a fork's) instead of the official one
           if [ -n "$KSU_SIZE" ] && [ -n "$KSU_HASH" ]; then
@@ -175,64 +196,35 @@ jobs:
 
           echo "CONFIG_KSU=y" >> "arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
 
-      - name: "⚡ Apply 120Hz lock, -O3, quiet logging"
+      - name: "⚡ Apply profile (match / lock)"
         working-directory: ./${{ env.kernelDir }}/${{ env.kernelName }}
+        env:
+          PROFILE: ${{ github.event.inputs.profile }}
         run: |
           set -e
-          for p in ${{ env.WORK_DIR }}/_builder/patches/*.patch; do
-            echo "🔧 Applying $p"
-            patch -p1 --forward < "$p"
-          done
-
           CFG="arch/arm64/configs/${{ env.DEFCONFIG_NAME }}"
-          # drop any earlier values so ours win cleanly
-          for k in CC_OPTIMIZE_FOR_PERFORMANCE CC_OPTIMIZE_FOR_PERFORMANCE_O3 CC_OPTIMIZE_FOR_SIZE \
-                   PRINTK_TIME PRINTK_CALLER PSTORE_CONSOLE PSTORE_PMSG PAGE_OWNER \
-                   CONSOLE_LOGLEVEL_DEFAULT CONSOLE_LOGLEVEL_QUIET MESSAGE_LOGLEVEL_DEFAULT \
-                   DRM_FORCE_120HZ HZ HZ_100 HZ_250 HZ_300 HZ_1000 CMDLINE LOG_BUF_SHIFT \
-                   UNMAP_KERNEL_AT_EL0 MITIGATE_SPECTRE_BRANCH_HISTORY \
-                   IOSCHED_BFQ BFQ_GROUP_IOSCHED MQ_IOSCHED_KYBER LRU_GEN_ENABLED \
-                   RCU_LAZY_DEFAULT_OFF; do
-            sed -i "/^CONFIG_${k}=/d;/^# CONFIG_${k} is not set/d" "$CFG"
-          done
+          drop() { for k in "$@"; do sed -i "/^CONFIG_${k}=/d;/^# CONFIG_${k} is not set/d" "$CFG"; done; }
 
+          # Boot params only: no struct/KMI-affecting options are touched, so the ROM's
+          # vendor modules (display, GPU, ...) keep matching. CMDLINE_EXTEND is already on.
+          drop CMDLINE
           cat >> "$CFG" << 'EOF'
+          CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure mitigations=off nowatchdog nosoftlockup nmi_watchdog=0 quiet loglevel=0 printk.devkmsg=off init_on_alloc=0 init_on_free=0 randomize_kstack_offset=off"
+          EOF
+
+          if [ "$PROFILE" = "lock" ]; then
+            for p in ${{ env.WORK_DIR }}/_builder/patches/*.patch; do
+              echo "🔧 Applying $p"
+              patch -p1 --forward < "$p"
+            done
+            drop CC_OPTIMIZE_FOR_PERFORMANCE CC_OPTIMIZE_FOR_PERFORMANCE_O3 DRM_FORCE_120HZ
+            cat >> "$CFG" << 'EOF'
           CONFIG_DRM_FORCE_120HZ=y
           # CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE is not set
           CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y
-          # CONFIG_PRINTK_TIME is not set
-          # CONFIG_PRINTK_CALLER is not set
-          # CONFIG_PSTORE_CONSOLE is not set
-          # CONFIG_PSTORE_PMSG is not set
-          # CONFIG_PAGE_OWNER is not set
-          CONFIG_CONSOLE_LOGLEVEL_DEFAULT=1
-          CONFIG_CONSOLE_LOGLEVEL_QUIET=1
-          CONFIG_MESSAGE_LOGLEVEL_DEFAULT=1
-          CONFIG_LOG_BUF_SHIFT=12
-          # tick: arm64 has no 50Hz option, 100 is the lowest
-          # CONFIG_HZ_250 is not set
-          CONFIG_HZ_100=y
-          CONFIG_HZ=100
-          # CPU-side mitigations (KPTI + branch-history). Other mitigations are
-          # turned off at boot via mitigations=off in CMDLINE below.
-          # CONFIG_UNMAP_KERNEL_AT_EL0 is not set
-          # CONFIG_MITIGATE_SPECTRE_BRANCH_HISTORY is not set
-          # memory/zram: stock (left untouched on purpose)
-          # Lazy RCU (battery): already in this tree, just default it on. Only
-          # takes effect on offloaded CPUs, hence rcu_nocbs= in the cmdline.
-          # CONFIG_RCU_LAZY_DEFAULT_OFF is not set
-          # I/O: BFQ is the heaviest scheduler and nothing on a phone needs it;
-          # mq-deadline (+kyber) stay. The active scheduler is picked at runtime
-          # by the module (elevator= is ignored on 5.15).
-          # CONFIG_IOSCHED_BFQ is not set
-          # CONFIG_BFQ_GROUP_IOSCHED is not set
-          # CONFIG_MQ_IOSCHED_KYBER is not set
-          # Multi-gen LRU on by default: better reclaim -> more apps stay cached
-          CONFIG_LRU_GEN_ENABLED=y
-          # Keep the stock GKI params, append ours (CMDLINE_EXTEND is already on)
-          CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off kvm-arm.mode=protected cgroup_disable=pressure mitigations=off nowatchdog nosoftlockup nmi_watchdog=0 quiet loglevel=0 printk.devkmsg=off rcu_nocbs=0-7 init_on_alloc=0 init_on_free=0 randomize_kstack_offset=off"
           EOF
-          echo "✅ patches + config tweaks applied"
+          fi
+          echo "✅ profile $PROFILE applied"
 
       - name: "🔨 Build kernel"
         working-directory: ${{ env.WORK_DIR }}
@@ -245,7 +237,7 @@ jobs:
         run: |
           CFG=$(find out -maxdepth 4 -name .config | head -1)
           echo "config: $CFG"
-          grep -E "^(# )?CONFIG_(HZ|HZ_100|HZ_250|RCU_LAZY|RCU_LAZY_DEFAULT_OFF|RCU_NOCB_CPU|KSU|INIT_ON_ALLOC_DEFAULT_ON|IOSCHED_BFQ|MQ_IOSCHED_DEADLINE|MQ_IOSCHED_KYBER|LRU_GEN|LRU_GEN_ENABLED|CC_OPTIMIZE_FOR_PERFORMANCE_O3|DRM_FORCE_120HZ|UNMAP_KERNEL_AT_EL0|MITIGATE_SPECTRE_BRANCH_HISTORY|ZRAM_DEF_COMP|LOG_BUF_SHIFT|PRINTK_TIME|PSTORE_CONSOLE|CMDLINE|CMDLINE_EXTEND|CONSOLE_LOGLEVEL_DEFAULT)[= ]" "$CFG" || true
+          grep -E "^(# )?CONFIG_(HZ|HZ_100|HZ_250|RCU_LAZY|RCU_LAZY_DEFAULT_OFF|RCU_NOCB_CPU|KSU|INIT_ON_ALLOC_DEFAULT_ON|IOSCHED_BFQ|MQ_IOSCHED_DEADLINE|MQ_IOSCHED_KYBER|LRU_GEN|CC_OPTIMIZE_FOR_PERFORMANCE_O3|DRM_FORCE_120HZ|UNMAP_KERNEL_AT_EL0|MITIGATE_SPECTRE_BRANCH_HISTORY|ZRAM_DEF_COMP|LOG_BUF_SHIFT|PRINTK_TIME|PSTORE_CONSOLE|CMDLINE|CMDLINE_EXTEND|CONSOLE_LOGLEVEL_DEFAULT)[= ]" "$CFG" || true
 
       - name: "📦 Prepare artifact"
         working-directory: ${{ env.WORK_DIR }}
@@ -285,7 +277,7 @@ jobs:
           find kernels -name "Image.*" -exec cp {} AnyKernel3/ \;
 
           # Create ZIP
-          ZIP_NAME="Anykernel3_tapas_KernelSU_${BUILD_TIME}.zip"
+          ZIP_NAME="Anykernel3_tapas_${{ github.event.inputs.ksuRepo }}_${{ github.event.inputs.profile }}_${BUILD_TIME}.zip"
           cd AnyKernel3
           zip -r9 "../$ZIP_NAME" * -x .git/*
           cd ..
