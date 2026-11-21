@@ -150,6 +150,11 @@ jobs:
       WORK_DIR: ${{ github.workspace }}
 
     steps:
+      - name: "📂 Checkout builder repo (patches)"
+        uses: actions/checkout@v4
+        with:
+          path: _builder
+
       - name: "✨ Setup workspace"
         run: |
           mkdir -p $kernelDir
