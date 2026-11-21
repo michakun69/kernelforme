@@ -1,18 +1,9 @@
 #!/system/bin/sh
-# One-shot late-boot script: no loop, no daemon, exits in ~100s. Memory stays stock.
-#
-# Optional overrides in /data/adb/force120vk.conf:
-#   TARGET=120            refresh-rate setting
-#   ANIM_SCALE=0.5        window/transition/animator scale ("" = leave alone)
-#   IO_SCHED=mq-deadline
-#   SAVER_AUTO=0          1 = leave battery saver's automatic trigger alone
+# One-shot late-boot script: no loop, no daemon. Memory stays stock.
+# Optional override in /data/adb/force120vk.conf:  IO_SCHED=mq-deadline
 [ -f /data/adb/force120vk.conf ] && . /data/adb/force120vk.conf
-TARGET=${TARGET:-120}
-ANIM_SCALE=${ANIM_SCALE-0.5}
 IO_SCHED=${IO_SCHED:-mq-deadline}
-SAVER_AUTO=${SAVER_AUTO:-0}
-
-S="cmd settings"      # native binder client: far cheaper than the `settings` app_process
+S="cmd settings"
 
 while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 2; done
 sleep 10
@@ -34,7 +25,7 @@ for b in /sys/block/sd[a-z] /sys/block/mmcblk[0-9]; do
   w $b/queue/iosched/front_merges 0
 done
 
-# log / debug overhead off at runtime (watchdog, tracing, MGLRU are done by the kernel cmdline/config)
+# log / debug overhead off at runtime
 w /proc/sys/kernel/hung_task_timeout_secs 0
 w /proc/sys/kernel/printk "0 0 0 0"
 w /proc/sys/kernel/printk_devkmsg off
@@ -43,33 +34,23 @@ w /proc/sys/kernel/sched_schedstats 0
 w /proc/sys/kernel/perf_cpu_time_max_percent 1
 w /sys/kernel/tracing/events/enable 0
 w /sys/kernel/debug/tracing/events/enable 0
-w /proc/sys/vm/stat_interval 10     # vmstat timer: fewer idle wakeups
+w /proc/sys/vm/stat_interval 10
 
-# Settings written once (not repeated)
-$S put global angle_gl_driver_all_angle 1        # GL via ANGLE/Vulkan, only if the ROM ships ANGLE
-$S put global angle_gl_driver_selection_pkgs '*'
-$S put global angle_gl_driver_selection_values angle
-$S put global disable_window_blurs 1
-if [ -n "$ANIM_SCALE" ]; then
-  $S put global window_animation_scale "$ANIM_SCALE"
-  $S put global transition_animation_scale "$ANIM_SCALE"
-  $S put global animator_duration_scale "$ANIM_SCALE"
+# One-time cleanup of settings that module v1.x/v2.x wrote and left behind
+if [ ! -f /data/adb/force120vk.cleaned ]; then
+  for k in min_refresh_rate peak_refresh_rate user_refresh_rate oplus_customize_screen_refresh_rate; do
+    $S delete system $k
+  done
+  for k in disable_window_blurs angle_gl_driver_all_angle angle_gl_driver_selection_pkgs \
+           angle_gl_driver_selection_values low_power_trigger_level automatic_power_save_mode \
+           low_power_sticky; do
+    $S delete global $k
+  done
+  for k in window_animation_scale transition_animation_scale animator_duration_scale; do
+    $S put global $k 1.0
+  done
+  : > /data/adb/force120vk.cleaned
 fi
-
-# Battery saver: with no kernel-level lock the automatic trigger could drop the
-# refresh rate, so turn the auto-trigger off (manual toggle still exists).
-if [ "$SAVER_AUTO" = "0" ]; then
-  $S put global low_power_trigger_level 0
-  $S put global automatic_power_save_mode 0
-  $S delete global low_power_sticky
-fi
-
-apply() {
-  $S put system min_refresh_rate "$TARGET"
-  $S put system peak_refresh_rate "$TARGET"
-  $S put system user_refresh_rate "$TARGET"
-  $S put system oplus_customize_screen_refresh_rate 0
-}
 
 stop_loggers() {
   for svc in logd logcatd statsd traced traced_probes incidentd \
@@ -77,9 +58,7 @@ stop_loggers() {
     [ "$(getprop init.svc.$svc)" = "running" ] && stop "$svc" >/dev/null 2>&1
   done
 }
-
-# Now, and once more after the ROM has settled
-stop_loggers; apply >/dev/null 2>&1
+stop_loggers
 sleep 90
-stop_loggers; apply >/dev/null 2>&1
+stop_loggers
 exit 0

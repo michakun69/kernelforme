@@ -1,26 +1,3 @@
-# Loaded in one batch by the root manager at post-fs-data (before SurfaceFlinger
-# and zygote start). Replaces the old post-fs-data.sh: no per-prop processes.
-
-# Vulkan: UI + compositor
-ro.hwui.use_vulkan=true
-debug.hwui.renderer=skiavk
-debug.renderengine.backend=skiavkthreaded
-
-# Refresh rate: SurfaceFlinger must not follow per-app / content rates
-ro.surface_flinger.enable_frame_rate_override=false
-ro.surface_flinger.use_content_detection_for_refresh_rate=false
-ro.surface_flinger.set_idle_timer_ms=0
-ro.surface_flinger.set_touch_timer_ms=0
-ro.surface_flinger.set_display_power_timer_ms=0
-ro.surface_flinger.game_default_frame_rate_override=120
-
-# Blur off (+ ro.launcher.blur.appLaunch / background_blur_supported from Bye-Blur v3)
-ro.surface_flinger.supports_background_blur=0
-persist.sysui.disableBlur=true
-persist.sys.sf.disable_blurs=1
-ro.launcher.blur.appLaunch=0
-persist.sys.background_blur_supported=false
-
 # Keep compressed GPU buffers (UBWC) on: less DDR traffic -> less power/heat
 debug.gralloc.gfx_ubwc_disable=0
 vendor.gralloc.disable_ubwc=0
@@ -31,11 +8,5 @@ persist.log.tag=S
 persist.logd.size=64K
 persist.traced.enable=0
 ro.logd.size=64K
-
-# Qualcomm composer: no panel idle fps drop
-vendor.display.idle_time=0
-vendor.display.idle_time_inactive=0
-
-# More logging off
 persist.sys.assert.panic=false
 persist.vendor.verbose_logging_enabled=false
